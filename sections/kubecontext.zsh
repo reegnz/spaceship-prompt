@@ -22,6 +22,16 @@ SPACESHIP_KUBECONTEXT_COLOR_GROUPS=(${SPACESHIP_KUBECONTEXT_COLOR_GROUPS=})
 # ------------------------------------------------------------------------------
 # Section
 # ------------------------------------------------------------------------------
+query_context() {
+  kubectl config view --minify \
+    --output=jsonpath='{.contexts[0].context.cluster}{" "}{.contexts[0].context.namespace}{"\n"}' 2>/dev/null
+}
+get_context_only() {
+  query_context | awk '{print $1}'
+}
+get_context_with_namespace() {
+    query_context | awk '/default/{print $1;exit} {printf "%s (%s)",$1,$2}'
+}
 
 # Show current context in kubectl
 spaceship_kubecontext() {
@@ -29,13 +39,12 @@ spaceship_kubecontext() {
 
   spaceship::exists kubectl || return
 
-  local kube_context=$(kubectl config current-context 2>/dev/null)
-  [[ -z $kube_context ]] && return
-
   if [[ $SPACESHIP_KUBECONTEXT_NAMESPACE_SHOW == true ]]; then
-    local kube_namespace=$(kubectl config view --minify --output 'jsonpath={..namespace}' 2>/dev/null)
-    [[ -n $kube_namespace && "$kube_namespace" != "default" ]] && kube_context="$kube_context ($kube_namespace)"
+    kube_context=$(get_context_with_namespace)
+  else
+    kube_context=$(get_context_only)
   fi
+  [[ -z "$kube_context" ]] && return
 
   # Apply custom color to section if $kube_context matches a pattern defined in SPACESHIP_KUBECONTEXT_COLOR_GROUPS array.
   # See Options.md for usage example.
